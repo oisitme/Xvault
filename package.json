@@ -1,0 +1,19 @@
+{
+  "name": "tweet-video-downloader",
+  "version": "1.0.0",
+  "description": "Download videos from X (Twitter) with ease",
+  "type": "module",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "node --watch api/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.3",
+    "express-rate-limit": "^7.2.0",
+    "node-fetch": "^3.3.2"
+  }
+}

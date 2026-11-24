@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XVault — Twitter / X Video Downloader</title>
+  <meta name="description" content="Download HD videos from X (Twitter) instantly. Paste any tweet link and get the highest-quality MP4 for free." />
+  <meta name="keywords" content="twitter video downloader, x video downloader, tweet video download, download twitter mp4" />
+  <meta property="og:title" content="XVault — Twitter / X Video Downloader" />
+  <meta property="og:description" content="Download HD videos from X (Twitter) instantly. Free, fast, and no sign-up needed." />
+  <meta property="og:type" content="website" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ["Inter", "sans-serif"] },
+          colors: {
+            brand: {
+              50:  "#eff6ff",
+              100: "#dbeafe",
+              400: "#60a5fa",
+              500: "#3b82f6",
+              600: "#2563eb",
+              700: "#1d4ed8",
+            },
+            surface: {
+              900: "#080d16",
+              800: "#0d1526",
+              700: "#111d33",
+              600: "#172040",
+              500: "#1e2a52",
+            },
+          },
+          animation: {
+            "fade-up":    "fadeUp 0.5s ease forwards",
+            "pulse-slow": "pulse 3s cubic-bezier(0.4,0,0.6,1) infinite",
+            "shimmer":    "shimmer 2s linear infinite",
+            "spin-slow":  "spin 2s linear infinite",
+          },
+          keyframes: {
+            fadeUp: {
+              "0%":   { opacity: 0, transform: "translateY(20px)" },
+              "100%": { opacity: 1, transform: "translateY(0)" },
+            },
+            shimmer: {
+              "0%":   { backgroundPosition: "-700px 0" },
+              "100%": { backgroundPosition:  "700px 0" },
+            },
+          },
+          backgroundImage: {
+            "hero-gradient": "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(37,99,235,0.35), transparent)",
+            "card-gradient": "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)",
+            "shimmer-gradient": "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0) 100%)",
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      background-color: #080d16;
+      color: #e2e8f0;
+      font-family: "Inter", sans-serif;
+      min-height: 100vh;
+    }
+
+    /* Animated gradient orb */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(90px);
+      opacity: 0.18;
+      pointer-events: none;
+      animation: float 8s ease-in-out infinite alternate;
+    }
+    .orb-1 { width: 600px; height: 600px; background: #2563eb; top: -200px; left: -150px; }
+    .orb-2 { width: 500px; height: 500px; background: #7c3aed; bottom: -200px; right: -150px; animation-delay: -4s; }
+    @keyframes float { from { transform: translate(0,0) scale(1); } to { transform: translate(30px, 20px) scale(1.08); } }
+
+    /* Glassmorphism card */
+    .glass {
+      background: rgba(255,255,255,0.04);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    /* Input glow on focus */
+    #tweet-url:focus { box-shadow: 0 0 0 3px rgba(37,99,235,0.35), 0 0 24px rgba(37,99,235,0.15); }
+
+    /* Button shimmer effect */
+    .btn-primary {
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-primary::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+      transform: translateX(-100%);
+      transition: transform 0.4s ease;
+    }
+    .btn-primary:hover::after { transform: translateX(100%); }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(37,99,235,0.45); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-primary:disabled::after { display: none; }
+
+    /* Download quality cards */
+    .quality-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      transition: all 0.2s ease;
+    }
+    .quality-card:hover {
+      background: rgba(37,99,235,0.12);
+      border-color: rgba(59,130,246,0.4);
+      transform: translateY(-2px);
+    }
+
+    /* Skeleton shimmer */
+    .skeleton {
+      background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 100%);
+      background-size: 700px 100%;
+      animation: shimmer 1.6s linear infinite;
+    }
+
+    /* Video preview */
+    #video-preview { border-radius: 12px; max-height: 420px; width: 100%; object-fit: contain; }
+
+    /* Toast notifications */
+    #toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      z-index: 9999;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    #toast.hidden { opacity: 0; transform: translateY(20px) scale(0.95); pointer-events: none; }
+
+    /* Scroll */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0d1526; }
+    ::-webkit-scrollbar-thumb { background: #2563eb55; border-radius: 3px; }
+  </style>
+</head>
+<body class="antialiased">
+
+  <!-- Background orbs -->
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+
+  <!-- ───────────── HEADER ───────────── -->
+  <header class="relative z-10 border-b border-white/5">
+    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <!-- X/Twitter Logo SVG -->
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center shadow-lg shadow-blue-900/40">
+          <svg viewBox="0 0 24 24" class="w-5 h-5 fill-white" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+          </svg>
+        </div>
+        <div>
+          <span class="text-xl font-bold text-white tracking-tight">XVault</span>
+          <span class="ml-2 text-xs text-blue-400 font-medium bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">Free</span>
+        </div>
+      </div>
+      <nav class="hidden sm:flex items-center gap-6 text-sm text-slate-400">
+        <span class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+          No sign-up required
+        </span>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ───────────── HERO ───────────── -->
+  <main class="relative z-10 max-w-5xl mx-auto px-6 pt-16 pb-24">
+
+    <!-- Hero text -->
+    <div class="text-center mb-12 animate-fade-up">
+      <div class="inline-flex items-center gap-2 text-sm text-blue-400 font-medium bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-1.5 mb-6">
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>
+        HD Quality · MP4 · Instant Download
+      </div>
+      <h1 class="text-5xl sm:text-6xl font-black text-white mb-5 leading-tight tracking-tight">
+        Download X Videos
+        <span class="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent block sm:inline"> Instantly</span>
+      </h1>
+      <p class="text-slate-400 text-lg max-w-xl mx-auto leading-relaxed">
+        Paste any tweet link and download the original quality video in seconds. No watermarks. No BS.
+      </p>
+    </div>
+
+    <!-- ───── INPUT CARD ───── -->
+    <div class="glass rounded-2xl p-6 sm:p-8 mb-8 animate-fade-up" style="animation-delay:0.1s">
+      <form id="fetch-form" class="flex flex-col sm:flex-row gap-3">
+        <div class="flex-1 relative">
+          <!-- URL Icon -->
+          <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+            <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+            </svg>
+          </div>
+          <input
+            id="tweet-url"
+            type="url"
+            placeholder="https://x.com/user/status/..."
+            autocomplete="off"
+            spellcheck="false"
+            class="w-full bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 py-4 text-white placeholder-slate-500 text-sm outline-none transition-all duration-200 focus:border-blue-500/60"
+          />
+        </div>
+        <button
+          id="fetch-btn"
+          type="submit"
+          class="btn-primary rounded-xl px-8 py-4 text-white font-semibold text-sm whitespace-nowrap"
+        >
+          <span id="btn-text" class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Fetch Video
+          </span>
+          <span id="btn-loading" class="hidden flex items-center gap-2">
+            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+            Fetching...
+          </span>
+        </button>
+      </form>
+
+      <!-- Error message -->
+      <div id="error-box" class="hidden mt-4 flex items-start gap-3 bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+        <svg class="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <p id="error-text" class="text-red-300 text-sm leading-relaxed"></p>
+      </div>
+    </div>
+
+    <!-- ───── SKELETON LOADER ───── -->
+    <div id="skeleton" class="hidden glass rounded-2xl overflow-hidden">
+      <div class="skeleton h-64 w-full"></div>
+      <div class="p-6 space-y-3">
+        <div class="skeleton h-4 w-2/3 rounded-full"></div>
+        <div class="skeleton h-4 w-1/2 rounded-full"></div>
+        <div class="flex gap-3 mt-4">
+          <div class="skeleton h-12 flex-1 rounded-xl"></div>
+          <div class="skeleton h-12 w-32 rounded-xl"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───── RESULT CARD ───── -->
+    <div id="result-card" class="hidden glass rounded-2xl overflow-hidden animate-fade-up">
+
+      <!-- Video Preview -->
+      <div class="bg-black/40 relative group">
+        <video
+          id="video-preview"
+          controls
+          preload="metadata"
+          referrerpolicy="no-referrer"
+          class="w-full max-h-[440px] object-contain"
+        ></video>
+        <!-- Thumbnail overlay shown before play -->
+        <div id="thumb-overlay" class="absolute inset-0 flex items-center justify-center cursor-pointer bg-black/50 transition-opacity duration-300 group-hover:bg-black/30">
+          <div class="w-16 h-16 rounded-full bg-blue-600/90 flex items-center justify-center backdrop-blur-sm shadow-2xl shadow-blue-900 hover:scale-110 transition-transform duration-200">
+            <svg class="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tweet metadata -->
+      <div class="p-6 sm:p-8">
+        <div class="flex items-start gap-3 mb-6">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center flex-shrink-0">
+            <span id="author-initial" class="text-white font-bold text-sm"></span>
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span id="author-name" class="text-white font-semibold text-sm"></span>
+              <span id="author-username" class="text-slate-500 text-sm"></span>
+            </div>
+            <p id="tweet-text" class="text-slate-400 text-sm mt-1 leading-relaxed line-clamp-3"></p>
+          </div>
+        </div>
+
+        <!-- Quality variants -->
+        <div class="mb-6">
+          <p class="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">Select Quality</p>
+          <div id="variants-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+        </div>
+
+        <!-- Primary download button -->
+        <button
+          id="download-btn"
+          class="btn-primary w-full rounded-xl py-4 text-white font-semibold text-sm flex items-center justify-center gap-2"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          Download Highest Quality
+        </button>
+      </div>
+    </div>
+
+    <!-- ───── FEATURES ───── -->
+    <div class="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-4" id="features-section">
+      <div class="glass rounded-2xl p-6 text-center animate-fade-up" style="animation-delay:0.15s">
+        <div class="w-12 h-12 mx-auto mb-4 rounded-xl bg-blue-500/15 flex items-center justify-center">
+          <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <h3 class="text-white font-semibold mb-1">Lightning Fast</h3>
+        <p class="text-slate-500 text-sm leading-relaxed">Get your video in under a second from paste to download.</p>
+      </div>
+      <div class="glass rounded-2xl p-6 text-center animate-fade-up" style="animation-delay:0.2s">
+        <div class="w-12 h-12 mx-auto mb-4 rounded-xl bg-violet-500/15 flex items-center justify-center">
+          <svg class="w-6 h-6 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+        </div>
+        <h3 class="text-white font-semibold mb-1">Original Quality</h3>
+        <p class="text-slate-500 text-sm leading-relaxed">We always fetch the highest bitrate MP4 available.</p>
+      </div>
+      <div class="glass rounded-2xl p-6 text-center animate-fade-up" style="animation-delay:0.25s">
+        <div class="w-12 h-12 mx-auto mb-4 rounded-xl bg-green-500/15 flex items-center justify-center">
+          <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+        </div>
+        <h3 class="text-white font-semibold mb-1">No Sign-Up</h3>
+        <p class="text-slate-500 text-sm leading-relaxed">Completely free, no account needed, no watermarks.</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ───────────── FOOTER ───────────── -->
+  <footer class="relative z-10 border-t border-white/5 mt-auto">
+    <div class="max-w-5xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-600 text-sm">
+      <span>© 2025 XVault. For personal use only. Respect copyright.</span>
+      <span class="flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+        Rate limited to keep service fair
+      </span>
+    </div>
+  </footer>
+
+  <!-- ───────────── TOAST ───────────── -->
+  <div id="toast" class="hidden glass rounded-xl px-5 py-3 flex items-center gap-3 shadow-2xl min-w-[220px]">
+    <span id="toast-icon"></span>
+    <span id="toast-text" class="text-sm text-white font-medium"></span>
+  </div>
+
+  <!-- ───────────── JAVASCRIPT ───────────── -->
+  <script>
+    // ── State ────────────────────────────────────────────────────────────────
+    let currentVariants = [];
+    let selectedVariantIndex = 0;
+
+    // ── DOM Refs ─────────────────────────────────────────────────────────────
+    const form          = document.getElementById("fetch-form");
+    const urlInput      = document.getElementById("tweet-url");
+    const fetchBtn      = document.getElementById("fetch-btn");
+    const btnText       = document.getElementById("btn-text");
+    const btnLoading    = document.getElementById("btn-loading");
+    const errorBox      = document.getElementById("error-box");
+    const errorText     = document.getElementById("error-text");
+    const skeleton      = document.getElementById("skeleton");
+    const resultCard    = document.getElementById("result-card");
+    const videoPreview  = document.getElementById("video-preview");
+    const thumbOverlay  = document.getElementById("thumb-overlay");
+    const authorName    = document.getElementById("author-name");
+    const authorUsername= document.getElementById("author-username");
+    const authorInitial = document.getElementById("author-initial");
+    const tweetText     = document.getElementById("tweet-text");
+    const variantsList  = document.getElementById("variants-list");
+    const downloadBtn   = document.getElementById("download-btn");
+    const toast         = document.getElementById("toast");
+    const toastText     = document.getElementById("toast-text");
+    const toastIcon     = document.getElementById("toast-icon");
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function setLoading(on) {
+      fetchBtn.disabled = on;
+      btnText.classList.toggle("hidden", on);
+      btnLoading.classList.toggle("hidden", !on);
+    }
+
+    function showError(msg) {
+      errorBox.classList.remove("hidden");
+      errorText.textContent = msg;
+    }
+    function hideError() { errorBox.classList.add("hidden"); }
+
+    function showSkeleton() { skeleton.classList.remove("hidden"); }
+    function hideSkeleton() { skeleton.classList.add("hidden"); }
+
+    function showResult() { resultCard.classList.remove("hidden"); }
+    function hideResult() { resultCard.classList.add("hidden"); }
+
+    let toastTimer;
+    function showToast(msg, type = "success") {
+      clearTimeout(toastTimer);
+      const icons = {
+        success: `<svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>`,
+        error:   `<svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>`,
+        info:    `<svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+      };
+      toastIcon.innerHTML = icons[type] ?? icons.info;
+      toastText.textContent = msg;
+      toast.classList.remove("hidden");
+      toast.classList.remove("opacity-0");
+      toastTimer = setTimeout(() => toast.classList.add("hidden"), 3500);
+    }
+
+    function formatBitrate(bps) {
+      if (!bps) return "HLS/Adaptive";
+      const mbps = bps / 1_000_000;
+      return mbps >= 1 ? `${mbps.toFixed(1)} Mbps` : `${(bps / 1000).toFixed(0)} Kbps`;
+    }
+
+    function selectVariant(index) {
+      selectedVariantIndex = index;
+      // Update video src
+      const variant = currentVariants[index];
+      videoPreview.src = variant.url;
+      videoPreview.load();
+
+      // Highlight selected card
+      document.querySelectorAll(".variant-card").forEach((el, i) => {
+        const isSelected = i === index;
+        el.classList.toggle("border-blue-500/60", isSelected);
+        el.classList.toggle("bg-blue-500/10", isSelected);
+        el.classList.toggle("border-white/7", !isSelected);
+      });
+
+      // Update primary download btn
+      downloadBtn.onclick = () => triggerDownload(variant.url, index);
+    }
+
+    async function triggerDownload(url, index) {
+      const variant = currentVariants[index];
+
+      // Show spinner on button
+      downloadBtn.disabled = true;
+      downloadBtn.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+        Starting download…
+      `;
+
+      try {
+        // WHY this approach:
+        // video.twimg.com returns 403 when ANY non-Twitter Referer is sent,
+        // including from our own domain. Browser fetch() always leaks the
+        // page's Referer, so we can't blob-download directly.
+        //
+        // Instead: redirect the browser to our /api/download proxy. The
+        // server re-fetches with Referer: https://twitter.com/ (which passes),
+        // then pipes the bytes back as Content-Disposition: attachment.
+        // The browser sees same-origin and immediately shows the Save dialog.
+        const proxyUrl =
+          `/api/download?url=${encodeURIComponent(url)}&quality=${encodeURIComponent(variant.quality)}`;
+
+        // Use an invisible iframe to trigger the download without navigating away
+        const iframe = document.createElement("iframe");
+        iframe.style.display = "none";
+        iframe.src = proxyUrl;
+        document.body.appendChild(iframe);
+        setTimeout(() => iframe.remove(), 30_000);
+
+        showToast(`${variant.quality} download started!`, "success");
+      } catch (err) {
+        console.error("Download error:", err);
+        showToast("Download failed. Please try again.", "error");
+      } finally {
+        setTimeout(() => {
+          downloadBtn.disabled = false;
+          downloadBtn.innerHTML = `
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Download Highest Quality
+          `;
+        }, 1500);
+      }
+    }
+
+    function renderVariants(variants) {
+      variantsList.innerHTML = "";
+      variants.forEach((v, i) => {
+        const card = document.createElement("button");
+        card.className = "variant-card quality-card rounded-xl px-4 py-3 text-left flex items-center justify-between gap-3 w-full transition-all duration-200 border border-white/7";
+        card.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600/40 to-violet-600/40 flex items-center justify-center flex-shrink-0">
+              <svg class="w-4 h-4 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.361a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <div>
+              <span class="text-white text-sm font-semibold">${v.quality}</span>
+              ${i === 0 ? '<span class="ml-2 text-xs text-blue-400 bg-blue-500/15 px-1.5 py-0.5 rounded font-medium">Best</span>' : ""}
+              <p class="text-slate-500 text-xs">${formatBitrate(v.bitrate)}</p>
+            </div>
+          </div>
+          <svg class="w-5 h-5 text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+        `;
+        card.addEventListener("click", () => {
+          selectVariant(i);
+          triggerDownload(v.url, i);
+        });
+        variantsList.appendChild(card);
+      });
+    }
+
+    // ── Thumbnail overlay click to play ──────────────────────────────────────
+    thumbOverlay.addEventListener("click", () => {
+      thumbOverlay.style.opacity = "0";
+      thumbOverlay.style.pointerEvents = "none";
+      videoPreview.play();
+    });
+    videoPreview.addEventListener("play", () => {
+      thumbOverlay.style.opacity = "0";
+      thumbOverlay.style.pointerEvents = "none";
+    });
+    videoPreview.addEventListener("pause", () => {
+      thumbOverlay.style.opacity = "1";
+      thumbOverlay.style.pointerEvents = "auto";
+    });
+
+    // ── Form submit ───────────────────────────────────────────────────────────
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const url = urlInput.value.trim();
+      if (!url) { urlInput.focus(); return; }
+
+      hideError();
+      hideResult();
+      showSkeleton();
+      setLoading(true);
+
+      try {
+        const res = await fetch("/api/fetch-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error ?? `Server error (${res.status})`);
+        }
+
+        // Populate metadata
+        currentVariants = data.variants;
+        authorName.textContent = data.author || "Unknown";
+        authorUsername.textContent = data.username ? `@${data.username}` : "";
+        authorInitial.textContent = (data.author || "?")[0].toUpperCase();
+        tweetText.textContent = data.text || "";
+
+        // Set video + thumbnail
+        const bestVariant = data.variants[0];
+        videoPreview.src = bestVariant.url;
+        videoPreview.poster = data.thumbnail ?? "";
+
+        // Reset overlay
+        thumbOverlay.style.opacity = "1";
+        thumbOverlay.style.pointerEvents = "auto";
+
+        renderVariants(data.variants);
+        selectVariant(0);
+
+        hideSkeleton();
+        showResult();
+
+        // Smooth scroll to result
+        resultCard.scrollIntoView({ behavior: "smooth", block: "start" });
+        showToast("Video fetched! Choose quality to download.", "success");
+
+      } catch (err) {
+        hideSkeleton();
+        showError(err.message);
+        showToast(err.message, "error");
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    // ── Paste shortcut ────────────────────────────────────────────────────────
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "v" && document.activeElement !== urlInput) {
+        urlInput.focus();
+      }
+    });
+  </script>
+</body>
+</html>
